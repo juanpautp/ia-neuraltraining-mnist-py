@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#173fbd">
+  <title>MNIST Lab — Entrenamiento visual</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23173fbd'/%3E%3Ctext x='7' y='25' font-size='25' fill='white'%3E3%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="MNIST Lab, inicio"><span class="brand-symbol" aria-hidden="true">3</span><span>MNIST <strong>Lab</strong></span></a>
+    <span class="topbar-description">Redes neuronales desde cero</span>
+    <span id="connection" class="connection"><span class="status-dot"></span>Conectando</span>
+  </header>
+  <main class="workspace">
+    <aside class="settings-panel">
+      <div class="panel-title"><span class="control-icon" aria-hidden="true">☷</span><h2>Tu experimento</h2></div>
+      <p class="muted">Ajusta los valores y observa cómo aprende la red.</p>
+      <form id="training-form">
+        <fieldset id="settings-fields">
+          <div class="field"><label for="experiment-preset">Preparar un experimento</label><select id="experiment-preset"><option value="custom">Personalizado</option><option value="baseline">Base: α 0,5 · 10 neuronas</option><option value="small-alpha">α 0,1 · 10 neuronas</option><option value="large-alpha">α 1 · 10 neuronas</option><option value="wide">α 0,5 · 32 neuronas</option><option value="wider">α 0,5 · 64 neuronas</option><option value="deep">α 0,5 · 32 → 16 neuronas</option></select></div>
+          <div class="field">
+            <label for="alpha">Learning rate <span class="math-label">α</span></label>
+            <input id="alpha" name="alpha" type="number" min="0.000001" max="10" step="any" value="0.5" required>
+            <input id="alpha-slider" type="range" min="-3" max="1" step="0.01" value="-0.30103" aria-label="Ajustar learning rate en escala logarítmica">
+            <div class="range-labels"><span>0,001</span><span>10</span></div>
+            <p class="field-help">Controla el tamaño de cada ajuste a los pesos.</p>
+          </div>
+          <div class="field"><label for="iterations">Iteraciones</label><input id="iterations" name="iterations" type="number" min="1" max="5000" step="1" value="500" required><p class="field-help">Una actualización usa las 50.000 imágenes.</p></div>
+          <div class="field-row">
+            <div class="field"><label for="seed">Semilla</label><input id="seed" name="seed" type="number" min="0" step="1" value="0" required></div>
+            <div class="field"><label for="log-every">Logs cada</label><select id="log-every" name="log_every"><option value="1">1 iteración</option><option value="10">10 iteraciones</option><option value="50">50 iteraciones</option></select></div>
+          </div>
+          <div class="architecture-fields">
+            <div class="field"><label for="hidden-neurons">Neuronas de la primera capa oculta</label><input id="hidden-neurons" name="hidden_neurons" type="number" min="1" max="256" step="1" value="10" required></div>
+            <label class="checkbox-label" for="second-hidden-enabled"><input id="second-hidden-enabled" name="second_hidden_enabled" type="checkbox">Agregar segunda capa oculta</label>
+            <div id="second-hidden-field" class="field" hidden><label for="second-hidden-neurons">Neuronas de la segunda capa oculta</label><input id="second-hidden-neurons" name="second_hidden_neurons" type="number" min="1" max="256" step="1" value="16" disabled required></div>
+          </div>
+          <div class="field"><label for="validation-every">Validación cada</label><select id="validation-every"><option value="10">10 iteraciones</option><option value="25">25 iteraciones</option><option value="50" selected>50 iteraciones</option><option value="100">100 iteraciones</option></select></div>
+          <div class="field"><label for="experiment-name">Nombre automático</label><output id="experiment-name" for="alpha iterations seed hidden-neurons second-hidden-enabled second-hidden-neurons" aria-live="polite"></output><p class="field-help">Se actualiza con tus valores. Al guardar se añade un identificador para distinguir pruebas repetidas.</p></div>
+        </fieldset>
+        <button id="train-button" class="button primary" type="submit" disabled><span aria-hidden="true">▶</span> Iniciar entrenamiento</button>
+        <button id="stop-button" class="button secondary" type="button" hidden>Detener entrenamiento</button>
+      </form>
+      <p id="form-message" class="field-help" aria-live="polite">Cargando el dataset…</p>
+      <div class="network-section">
+        <h3>Arquitectura seleccionada</h3>
+        <div id="network-diagram" class="network-diagram" aria-label="784 entradas, 10 neuronas ocultas y 10 salidas"><div><strong>784</strong><span>Píxeles</span></div><span aria-hidden="true">→</span><div><strong>10</strong><span>Ocultas</span></div><span aria-hidden="true">→</span><div><strong>10</strong><span>Dígitos</span></div></div>
+        <p id="parameter-count" class="parameter-count">7.960 parámetros</p>
+        <p class="field-help">Sigmoid en las capas ocultas y softmax en la salida. Inicialización fija a escala 0,01.</p>
+        <div class="dataset-line"><span>Entrenamiento</span><strong>50.000 imágenes</strong></div>
+        <div class="dataset-line"><span>Validación</span><strong>10.000 reservadas</strong></div>
+      </div>
+    </aside>
+    <div class="main-panel">
+      <div class="page-heading"><div><h1>Mira cómo aprende una red.</h1><p>Cambia un valor. Entrena. Prueba un dígito.</p></div><span id="run-status" class="badge">Preparando</span></div>
+      <div id="error-banner" class="error-banner" role="alert" hidden></div>
+      <section class="training-section" aria-labelledby="training-title">
+        <div class="section-heading"><h2 id="training-title">Entrenamiento en vivo</h2><span id="iteration-count" class="muted">Sin entrenamiento</span></div>
+        <div class="progress-track" role="progressbar" id="progress" aria-label="Progreso del entrenamiento" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-fill"></div></div>
+        <div class="metric-strip">
+          <div><span>Precisión de entrenamiento</span><strong id="accuracy-value">—</strong></div>
+          <div><span>Pérdida <small>(loss)</small></span><strong id="loss-value">—</strong></div>
+          <div><span>Precisión de validación</span><strong id="held-out-value">—</strong></div>
+          <div><span>Pérdida de validación</span><strong id="validation-loss-value">—</strong></div>
+          <div><span>Tiempo</span><strong id="elapsed-value">—</strong></div>
+        </div>
+        <p id="validation-note" class="validation-note">La validación se mide al inicio, a intervalos y al finalizar.</p>
+        <div class="training-body">
+          <div class="curves">
+            <div class="chart-heading"><h3>Precisión</h3><span class="line-legend"><span class="solid-line"></span>Entrenamiento <span class="dashed-line"></span>Validación</span></div>
+            <svg id="accuracy-chart" viewBox="0 0 600 158" role="img" aria-label="Precisión de entrenamiento por iteración"></svg>
+            <div class="chart-heading"><h3>Pérdida</h3><span class="line-legend"><span class="solid-line"></span>Entrenamiento <span class="dashed-line"></span>Validación</span></div>
+            <svg id="loss-chart" viewBox="0 0 600 158" role="img" aria-label="Pérdida de entrenamiento por iteración"></svg>
+            <p class="chart-note">Precisión: mayor es mejor. Pérdida: menor es mejor. La línea discontinua muestra imágenes reservadas para validación.</p>
+          </div>
+          <div class="logs-panel">
+            <div class="logs-heading"><h3><span class="live-dot" aria-hidden="true"></span>Logs</h3><span id="log-count">0 registros</span></div>
+            <div id="logs" class="logs" tabindex="0" aria-label="Registros del entrenamiento"><p class="log-empty">Los registros aparecerán aquí cuando inicies el entrenamiento.</p></div>
+          </div>
+        </div>
+      </section>
+      <section class="comparison-section" aria-labelledby="comparison-title">
+        <div class="section-heading"><div><h2 id="comparison-title">Compara tus experimentos</h2><p class="muted">Cada ejecución queda guardada con su configuración y su modelo.</p></div><span id="experiment-count" class="badge subtle">0 experimentos</span></div>
+        <div class="comparison-toolbar"><label for="comparison-metric">Comparar</label><select id="comparison-metric"><option value="accuracy">Precisión</option><option value="loss">Pérdida</option></select><span class="line-legend"><span class="solid-line"></span>Entrenamiento <span class="dashed-line"></span>Validación</span></div>
+        <div class="storage-toolbar"><p>Guardado local en tu PC. Puedes borrar los experimentos y sus modelos sin descargar MNIST de nuevo.</p><button id="delete-all-experiments" class="button danger compact" type="button" disabled>Borrar todos los experimentos</button></div>
+        <div id="comparison-legend" class="comparison-legend"></div>
+        <svg id="comparison-chart" viewBox="0 0 900 230" role="img" aria-label="Comparación de curvas entre experimentos"></svg>
+        <p id="comparison-hint" class="chart-note">Selecciona hasta cuatro experimentos en la tabla. Para aislar un efecto, cambia una sola variable y conserva la semilla y las iteraciones.</p>
+        <div class="experiment-table-wrap"><table class="experiment-table"><caption class="sr-only">Resultados de los experimentos guardados</caption><thead><tr><th scope="col">Comparar</th><th scope="col">Experimento / red</th><th scope="col">Alpha</th><th scope="col">Iteraciones</th><th scope="col">Semilla</th><th scope="col">Parámetros</th><th scope="col">Entrenamiento</th><th scope="col">Validación</th><th scope="col">Pérdida val.</th><th scope="col">Tiempo</th><th scope="col">Acciones</th></tr></thead><tbody id="experiment-rows"><tr><td colspan="11" class="empty-experiments">Entrena tu primera configuración para comenzar a comparar.</td></tr></tbody></table></div>
+        <p class="chart-note comparison-footnote">Todos usan los mismos datos, sigmoid e inicialización a escala 0,01. Las ejecuciones detenidas se indican en la tabla. El modelo anterior solo tiene validación en el punto final.</p>
+      </section>
+      <section class="prediction-section" aria-labelledby="prediction-title">
+        <div class="section-heading"><div><h2 id="prediction-title">Pon a prueba la red</h2><p class="muted">Elige una imagen y mira qué número reconoce.</p></div><span id="model-status" class="badge subtle">Sin modelo</span></div>
+        <div class="prediction-toolbar">
+          <div class="model-picker"><label for="prediction-model">Modelo para probar</label><select id="prediction-model"><option value="">Último entrenamiento</option></select></div>
+          <div class="tabs" role="tablist" aria-label="Origen de la imagen"><button id="dataset-tab" type="button" role="tab" aria-selected="true" aria-controls="dataset-controls" class="tab active">Imágenes MNIST</button><button id="upload-tab" type="button" role="tab" aria-selected="false" aria-controls="upload-controls" class="tab">Mi imagen</button></div>
+          <div id="dataset-controls" class="image-controls" role="tabpanel" aria-labelledby="dataset-tab">
+            <label for="image-index">Índice</label><input id="image-index" type="number" min="0" max="59999" value="50000" step="1" required><button id="predict-button" class="button compact" type="button">Probar</button>
+            <label class="sr-only" for="digit-filter">Dígito a buscar</label><select id="digit-filter"><option value="">Cualquier dígito</option><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option></select><button id="random-button" class="button compact secondary" type="button">Otra imagen</button>
+          </div>
+          <div id="upload-controls" class="image-controls" role="tabpanel" aria-labelledby="upload-tab" hidden><label class="upload-label" for="image-file">Seleccionar imagen</label><input id="image-file" type="file" accept="image/png,image/jpeg,image/webp"><span class="field-help">Un solo dígito sobre fondo uniforme. Hasta 5 MB.</span></div>
+        </div>
+        <div class="prediction-body">
+          <div class="digit-preview"><canvas id="digit-canvas" width="28" height="28" role="img" aria-label="Imagen del dígito que recibe la red"></canvas><span id="image-caption">Esperando imagen</span></div>
+          <div class="prediction-result"><span class="muted">La red predice</span><strong id="predicted-digit" class="predicted-digit">?</strong><span id="confidence-value">Sin predicción</span><span id="expected-label" class="expected-label">Entrena un modelo para empezar.</span></div>
+          <div class="probabilities"><div class="chart-heading"><h3>Probabilidad por dígito</h3><span id="probability-hint" class="muted">Salida softmax</span></div><div id="probability-bars" class="probability-bars" role="img" aria-label="Probabilidades para los dígitos del cero al nueve"></div></div>
+        </div>
+        <p id="prediction-note" class="chart-note">Las imágenes propias se convierten a 28 × 28 píxeles. La red fue entrenada con dígitos manuscritos.</p>
+      </section>
+      <footer>Todo se ejecuta en tu computador. <span>Python 3.14 · NumPy · MNIST</span></footer>
+    </div>
+  </main>
+  <dialog id="delete-dialog" aria-labelledby="delete-dialog-title" aria-describedby="delete-dialog-description">
+    <h2 id="delete-dialog-title">Borrar experimento</h2>
+    <p id="delete-dialog-description"></p>
+    <p class="delete-dialog-note">Esta acción no se puede deshacer. Las imágenes de MNIST se conservan.</p>
+    <div class="dialog-actions"><button id="delete-dialog-cancel" class="button secondary" type="button" autofocus>Cancelar</button><button id="delete-dialog-confirm" class="button danger" type="button">Borrar experimento</button></div>
+  </dialog>
+</body>
+</html>

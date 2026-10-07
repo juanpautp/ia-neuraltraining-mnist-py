@@ -1,0 +1,18 @@
+[project]
+name = "ia-neuraltraining-mnist-py"
+version = "0.1.0"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "fastapi>=0.142.2",
+    "matplotlib==3.10.8",
+    "numpy==2.4.2",
+    "pillow>=12.3.0",
+    "torch==2.10.0",
+    "torchvision==0.25.0",
+    "uvicorn>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+]
