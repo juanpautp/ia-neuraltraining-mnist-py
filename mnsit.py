@@ -1,3 +1,10 @@
+import marimo as mo
+import torch
+import torchvision
+import matplotlib.pyplot as plt
+import numpy as np
+
+device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 full_dataset = torchvision.datasets.MNIST(
     root='./data',
     train=True,
@@ -21,7 +28,7 @@ def init_params():
     b2 = np.zeros((10, 1))
     return W1, b1, W2, b2
 
-    def sigmoid(Z):
+def sigmoid(Z):
     return 1 / (1 + np.exp(-Z))
 
 def deriv_sigmoid(A):
@@ -36,14 +43,14 @@ def one_hot(Y):
     oh[np.arange(Y.size), Y] = 1
     return oh.T
 
-    def forward_prop(W1, b1, W2, b2, X):
+def forward_prop(W1, b1, W2, b2, X):
     Z1 = W1.dot(X) + b1
     A1 = sigmoid(Z1)
     Z2 = W2.dot(A1) + b2
     A2 = softmax(Z2)
     return Z1, A1, Z2, A2
 
-    def backward_prop(Z1, A1, Z2, A2, W1, W2, X, Y):
+def backward_prop(Z1, A1, Z2, A2, W1, W2, X, Y):
     m = Y.size
     Y_oh = one_hot(Y)
 
@@ -57,14 +64,14 @@ def one_hot(Y):
 
     return dW1, db1, dW2, db2
 
-    def update_params(W1, b1, W2, b2, dW1, db1, dW2, db2, alpha):
+def update_params(W1, b1, W2, b2, dW1, db1, dW2, db2, alpha):
     W1 -= alpha * dW1
     b1 -= alpha * db1
     W2 -= alpha * dW2
     b2 -= alpha * db2
     return W1, b1, W2, b2
 
-    def train_model(X, Y, iterations=500, alpha=0.1):
+def train_model(X, Y, iterations=500, alpha=0.1):
     W1, b1, W2, b2 = init_params()
     history = []
 
@@ -81,7 +88,7 @@ def one_hot(Y):
 
     return W1, b1, W2, b2, history
 
-    params = train_model(X_train, Y_train, iterations=500, alpha=0.5)
+params = train_model(X_train, Y_train, iterations=500, alpha=0.5)
 W1, b1, W2, b2, stats = params
 
 _, _, _, A2_test = forward_prop(W1, b1, W2, b2, X_test)
@@ -97,11 +104,3 @@ ax.set_title("Training accuracy over time")
 ax.set_ylim(0, 1)
 ax.grid(True)
 mo.as_html(fig)
-
-import marimo as mo
-import torch
-import torchvision
-import matplotlib.pyplot as plt
-import numpy as np
-
-device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
