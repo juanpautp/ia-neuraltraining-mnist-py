@@ -13,6 +13,53 @@ uv run python dashboard.py
 
 Abre **http://127.0.0.1:8000** en tu navegador. Mantén el proceso abierto mientras usas la página; para cerrarlo, presiona `Ctrl+C` en la terminal.
 
+La navegación superior contiene tres módulos:
+
+- **Red neuronal**: entrenamiento y experimentos que ya utilizábamos.
+- **KNN**: clasificador manual de vecinos, con MNIST y el ejemplo Iris del profesor.
+- **Comparar métodos**: evaluación de una red guardada frente a KNN sobre exactamente las mismas imágenes de MNIST.
+
+### KNN
+
+Abre **http://127.0.0.1:8000/knn**. El algoritmo adapta la distancia euclidiana y la votación uniforme de `knn_iris.py` del profesor. No utiliza Marimo. El archivo del profesor permanece intacto. Scikit-learn se utiliza para cargar Iris y crear su partición estratificada; la búsqueda de vecinos y la votación se implementan con NumPy.
+
+Puedes:
+
+- Elegir **MNIST** o **Iris**, modificar K o comparar hasta 20 valores de K entre 1 y 50.
+- Elegir cuántas referencias de MNIST conservar y cuántas imágenes reservadas evaluar. Para compararlo con las redes existentes, utiliza las 50.000 referencias completas.
+- Repetir una selección con la misma semilla. Las selecciones parciales de MNIST conservan aproximadamente las proporciones de los dígitos; las imágenes de validación nunca entran en la referencia.
+- En Iris, elegir la fracción de validación y activar la estandarización. Media y escala se ajustan exclusivamente sobre entrenamiento. El valor predeterminado usa una fracción del 20 %; con semilla 42 reproduce la partición del profesor.
+- Ver registros, progreso, una gráfica de aciertos frente a K, matriz de confusión y precisión, recall y F1 por clase.
+- Probar un dígito de MNIST por índice o ingresar las cuatro medidas de una flor. Se muestran los votos y hasta 12 vecinos, aunque la decisión utiliza todos los K seleccionados.
+- Recuperar resultados, descargarlos como JSON o borrar una ejecución o todas las del módulo, con confirmación en pantalla.
+
+KNN no tiene alpha, pesos ni epochs: `fit` conserva referencias y la predicción busca los ejemplos cercanos. El código procesa las consultas en lotes de 64 para evitar crear una matriz de distancias de todas las imágenes a la vez. Un barrido reutiliza los mismos vecinos para todos los K. Su tiempo corresponde al barrido completo, no a un entrenamiento iterativo ni a una medición independiente por cada K.
+
+Los vecinos se ordenan por distancia y, cuando empatan, por su posición de referencia. Si varias clases empatan en votos, gana la que aparece primero entre los vecinos de las clases empatadas, como con `Counter(...).most_common(1)` en el ejemplo del profesor. Las proporciones de votos no son probabilidades calibradas.
+
+### Comparar KNN con la red neuronal
+
+Abre **http://127.0.0.1:8000/compare**:
+
+1. Prepara una ejecución KNN de **MNIST con 50.000 referencias**.
+2. Selecciona una red neuronal guardada y esa ejecución KNN.
+3. Elige K, la cantidad de imágenes de validación y la semilla de selección.
+4. Ejecuta la comparación. La red no se vuelve a entrenar.
+
+El servidor exige la misma partición y todas las referencias de entrenamiento para ambos métodos. Rechaza Iris y los KNN preparados con menos referencias. Ambos reciben los mismos píxeles entre 0 y 1 y exactamente los mismos índices de validación. La comparación vuelve a predecir con ambos; no enfrenta una métrica histórica sobre 10.000 imágenes con otra calculada sobre 1.000.
+
+Los resultados incluyen aciertos, errores, F1 promedio, matrices de confusión, coincidencias y desacuerdos, ejemplos de imágenes y tiempos de predicción. Se usa el mismo tamaño de lote, un calentamiento inicial y un orden alternado entre métodos. El promedio por imagen es rendimiento por lotes, no latencia de una petición individual. Los tiempos dependen del equipo y su carga.
+
+La memoria suma los arrays numéricos que utiliza cada modelo: pesos y biases de la red frente a referencias, etiquetas y arrays auxiliares de KNN. No representa toda la RAM del proceso ni el tamaño del archivo guardado. El tiempo de entrenamiento de la red se recupera de su ejecución original; en KNN se muestra el tiempo necesario para preparar las referencias. No se presenta una pérdida softmax como equivalente a los votos de KNN.
+
+Los tres módulos conservan sus resultados separados. KNN y las comparaciones se guardan en `outputs/web/lab/<id>/run.json`, con configuración, índices, predicciones y métricas. KNN se reconstruye al reiniciar usando MNIST en caché o Iris y los índices guardados, sin duplicar las 50.000 imágenes por experimento. Se conserva en memoria un solo modelo KNN reconstruido. Borrar estos resultados no borra datasets ni redes neuronales; una comparación ya guardada conserva sus métricas aunque se elimine su ejecución KNN de origen.
+
+Se permite una evaluación KNN o comparación a la vez. El entrenamiento neuronal tampoco puede ejecutarse simultáneamente, para evitar competir por CPU durante las mediciones. Puedes detener una evaluación entre lotes; una ejecución detenida no se presenta como resultado completo ni se guarda parcialmente. Los resultados anteriores se conservan.
+
+Todos estos resultados siguen siendo **validación**, incluida la selección de K. Para una evaluación final hay que reservar un conjunto de test independiente.
+
+### Controles de la red neuronal
+
 Desde la página puedes:
 
 - Cambiar alpha (learning rate), iteraciones, semilla y el tamaño de la primera capa oculta (de 1 a 256 neuronas).
@@ -116,4 +163,4 @@ Selecciona `.venv/bin/python` como intérprete del proyecto y ejecuta `mnist.py`
 uv run python -m unittest discover -s tests -v
 ```
 
-Las pruebas verifican gradientes mediante diferencias finitas para una y dos capas ocultas, equivalencia con la red original, validación sin modificar pesos, recuperación de arquitecturas y experimentos, predicciones con modelos anteriores, logs, selección de dígitos, imágenes propias, validación de valores, detención de entrenamientos y borrado individual o completo con recuperación correcta al reiniciar.
+Las pruebas verifican gradientes mediante diferencias finitas para una y dos capas ocultas, equivalencia con la red original, validación sin modificar pesos, recuperación de arquitecturas y experimentos, predicciones con modelos anteriores, logs, selección de dígitos, imágenes propias, validación de valores, detención de entrenamientos y borrado individual o completo con recuperación correcta al reiniciar. También contrastan KNN con la implementación directa del profesor y con Scikit-learn en Iris, prueban empates, estandarización, barridos de K, recuperación de referencias, cancelación y comparación sobre los mismos índices sin modificar los pesos guardados.

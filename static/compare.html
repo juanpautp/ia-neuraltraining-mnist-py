@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#173fbd">
+  <title>Red neuronal vs KNN — MNIST Lab</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/lab.css">
+  <script src="/static/lab.js" defer></script>
+</head>
+<body data-module="comparison">
+  <header class="topbar"><a class="brand" href="/"><span class="brand-symbol" aria-hidden="true">3</span><span>MNIST <strong>Lab</strong></span></a><nav class="module-nav" aria-label="Módulos del laboratorio"><a href="/">Red neuronal</a><a href="/knn">KNN</a><a href="/compare" aria-current="page">Comparar métodos</a></nav><span id="lab-connection" class="connection">Conectando</span></header>
+  <main class="workspace lab-workspace">
+    <aside class="settings-panel">
+      <div class="panel-title"><h2>Una comparación justa</h2></div><p class="muted">Dos formas de reconocer los mismos números.</p>
+      <form id="lab-form"><fieldset id="lab-fields">
+        <div class="field"><label for="comparison-network">Red neuronal guardada</label><select id="comparison-network" required><option value="">Cargando modelos…</option></select></div>
+        <div class="field"><label for="comparison-knn">Evaluación KNN de MNIST</label><select id="comparison-knn" required><option value="">Cargando evaluaciones…</option></select><p class="field-help">Debe utilizar las 50.000 referencias, igual que la red. <a href="/knn">Preparar KNN</a>.</p></div>
+        <div class="field"><label for="comparison-k">Vecinos K</label><input id="comparison-k" type="number" min="1" max="50" step="1" value="5" required><p class="field-help">Elige K usando validación. Esta comparación también utiliza validación, no el test oficial.</p></div>
+        <div class="field"><label for="evaluation-count">Imágenes reservadas para ambos</label><select id="evaluation-count"><option value="100">100 · prueba rápida</option><option value="1000" selected>1.000</option><option value="5000">5.000</option><option value="10000">10.000 · todas</option></select></div>
+        <div class="field"><label for="lab-seed">Semilla de selección</label><input id="lab-seed" type="number" min="0" max="4294967295" step="1" value="0" required><p class="field-help">Cambia las imágenes evaluadas si usas menos de 10.000. No vuelve a entrenar la red.</p></div>
+      </fieldset><button id="lab-start" class="button primary" type="submit" disabled>Comparar red y KNN</button></form>
+      <p id="lab-form-note" class="field-help">Cargando los modelos disponibles…</p>
+      <div class="lesson-card"><h3>Las mismas condiciones</h3><p>Ambos usan los mismos 50.000 ejemplos de entrenamiento, píxeles entre 0 y 1 y exactamente las mismas imágenes de validación.</p><p>La red utiliza los pesos que ya aprendió. KNN conserva ejemplos y busca vecinos en cada predicción.</p><p>No comparamos la pérdida softmax con los votos de KNN. Comparamos aciertos, F1, errores por dígito, tiempo de predicción y datos numéricos en memoria.</p></div>
+    </aside>
+    <div class="main-panel">
+      <div class="page-heading"><div><h1>Red neuronal frente a KNN.</h1><p>Comprueba qué aciertan, qué confunden y cuánto cuesta predecir.</p></div><span id="lab-status" class="badge">Preparando</span></div>
+      <div id="lab-error" class="error-banner" role="alert" hidden></div>
+      <section class="lab-card" aria-labelledby="progress-title"><div class="section-heading"><div><h2 id="progress-title">Evaluación de ambos métodos</h2><p id="lab-progress-message" class="muted" aria-live="polite">Selecciona tus modelos para comenzar.</p></div><button id="lab-stop" class="button secondary compact" type="button" hidden>Detener</button></div><div id="lab-progress" class="progress-track" role="progressbar" aria-label="Progreso de comparación" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="lab-progress-fill"></div></div><pre id="lab-logs" class="lab-logs" tabindex="0" aria-label="Registros de comparación">Los registros aparecerán al comenzar.</pre></section>
+      <section class="lab-card" aria-labelledby="history-title"><div class="section-heading"><div><h2 id="history-title">Comparaciones guardadas</h2><p class="muted">Cada resultado conserva los modelos, las imágenes evaluadas y las métricas.</p></div><button id="lab-delete-all" class="button danger compact" type="button" disabled>Borrar comparaciones</button></div><div class="lab-table-wrap"><table class="lab-table"><thead><tr><th>Comparación</th><th>Red neuronal</th><th>KNN</th><th>Imágenes</th><th>Acciones</th></tr></thead><tbody id="lab-history"><tr><td colspan="5">Todavía no hay comparaciones.</td></tr></tbody></table></div></section>
+      <div id="lab-result" hidden>
+        <section class="lab-card" aria-labelledby="result-title"><div class="section-heading"><div><h2 id="result-title">Resultados sobre las mismas imágenes</h2><p id="result-subtitle" class="muted"></p></div><a id="lab-download" class="button secondary compact" href="#">Descargar resultados</a></div><div id="comparison-summary" class="comparison-summary"></div><div class="lab-table-wrap"><table class="lab-table"><thead><tr><th>Método</th><th>Aciertos</th><th>Errores</th><th>F1 promedio</th><th>Predicción total</th><th>Promedio por imagen</th><th>Datos del modelo en memoria</th><th>Preparación / entrenamiento</th></tr></thead><tbody id="method-rows"></tbody></table></div><p class="lab-footnote">Se mide una nueva pasada de predicción para ambos, con lotes del mismo tamaño y un calentamiento previo. El promedio por imagen mide rendimiento por lotes, no la latencia de una petición individual. La memoria suma los arrays numéricos; no es la RAM total del proceso. El entrenamiento de la red es el tiempo histórico; preparar KNN solo guarda referencias.</p><div id="agreement-metrics" class="lab-metrics"></div><div class="lab-chart"><svg id="method-chart" viewBox="0 0 800 240" role="img" aria-label="Aciertos de validación de red neuronal y KNN"></svg></div></section>
+        <section class="lab-card"><div class="section-heading"><div><h2>¿Qué números confunde cada método?</h2><p class="muted">Filas: dígito real. Columnas: predicción. La diagonal contiene los aciertos.</p></div></div><div class="lab-two-columns"><div><h3>Red neuronal</h3><div id="network-confusion" class="confusion-wrap"></div><div id="network-report" class="lab-table-wrap"></div></div><div><h3>KNN</h3><div id="comparison-knn-confusion" class="confusion-wrap"></div><div id="comparison-knn-report" class="lab-table-wrap"></div></div></div></section>
+        <section class="lab-card"><div class="section-heading"><div><h2>Imágenes en las que responden distinto</h2><p class="muted">Hasta 24 ejemplos de esta comparación.</p></div></div><div id="disagreement-examples" class="disagreement-examples"></div></section>
+      </div>
+      <footer>Resultados locales, separados de tus entrenamientos.<span>MNIST · Validación compartida</span></footer>
+    </div>
+  </main>
+</body>
+</html>

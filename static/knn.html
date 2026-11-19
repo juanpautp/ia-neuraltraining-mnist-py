@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#173fbd">
+  <title>KNN — MNIST Lab</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/lab.css">
+  <script src="/static/lab.js" defer></script>
+</head>
+<body data-module="knn">
+  <header class="topbar">
+    <a class="brand" href="/"><span class="brand-symbol" aria-hidden="true">3</span><span>MNIST <strong>Lab</strong></span></a>
+    <nav class="module-nav" aria-label="Módulos del laboratorio"><a href="/">Red neuronal</a><a href="/knn" aria-current="page">KNN</a><a href="/compare">Comparar métodos</a></nav>
+    <span id="lab-connection" class="connection">Conectando</span>
+  </header>
+  <main class="workspace lab-workspace">
+    <aside class="settings-panel">
+      <div class="panel-title"><h2>Tu experimento KNN</h2></div>
+      <p class="muted">Busca ejemplos parecidos y deja que sus vecinos voten.</p>
+      <form id="lab-form">
+        <fieldset id="lab-fields">
+          <div class="field"><label for="knn-dataset">Datos para explorar</label><select id="knn-dataset"><option value="mnist">MNIST · números escritos a mano</option><option value="iris">Iris · ejemplo del profesor</option></select></div>
+          <div class="field"><label for="knn-values">Vecinos K para comparar</label><input id="knn-values" type="text" value="1, 3, 5, 7, 9" required><p class="field-help">Separa los valores con comas. Entre 1 y 50; hasta 20 valores. La distancia se calcula una vez y se reutiliza en el barrido.</p></div>
+          <div id="mnist-settings">
+            <div class="field"><label for="reference-count">Ejemplos de referencia</label><select id="reference-count"><option value="1000">1.000 · prueba rápida</option><option value="5000">5.000</option><option value="10000">10.000</option><option value="50000" selected>50.000 · todos, como la red</option></select><p class="field-help">KNN conserva estos ejemplos. Para comparar con la red, elige 50.000.</p></div>
+            <div class="field"><label for="evaluation-count">Imágenes de validación</label><select id="evaluation-count"><option value="100">100 · prueba rápida</option><option value="1000" selected>1.000</option><option value="5000">5.000</option><option value="10000">10.000 · todas</option></select><p class="field-help">Se eligen de las 10.000 imágenes reservadas. Nunca se usan como vecinos.</p></div>
+          </div>
+          <div id="iris-settings" hidden>
+            <div class="field"><label for="validation-fraction">Validación de Iris</label><select id="validation-fraction"><option value="0.2">20 % · 30 flores</option><option value="0.3">30 % · 45 flores</option><option value="0.4">40 % · 60 flores</option></select></div>
+            <div class="field"><label class="checkbox-label" for="standardize"><input id="standardize" type="checkbox" checked>Estandarizar las cuatro medidas</label><p class="field-help">La media y la escala se calculan solo con las flores de entrenamiento.</p></div>
+          </div>
+          <div class="field"><label for="lab-seed">Semilla de selección de datos</label><input id="lab-seed" type="number" min="0" max="4294967295" step="1" value="0" required><p class="field-help">Repite la misma selección de ejemplos. KNN no inicializa pesos.</p></div>
+        </fieldset>
+        <button id="lab-start" class="button primary" type="submit" disabled>Evaluar KNN</button>
+      </form>
+      <p id="lab-form-note" class="field-help">Conectando con el laboratorio…</p>
+      <div class="lesson-card"><h3>¿Dónde está el entrenamiento?</h3><p>KNN no ajusta pesos ni utiliza alpha o epochs. Prepararlo consiste en guardar ejemplos. Al predecir, busca los K más cercanos y elige la clase con más votos.</p><p>Usamos distancia euclidiana y voto uniforme, como en el material del profesor. En un empate de votos gana la clase del vecino más cercano; si también empatan las distancias, se conserva el orden de referencia.</p></div>
+    </aside>
+    <div class="main-panel">
+      <div class="page-heading"><div><h1>Aprender mirando a los vecinos.</h1><p>Explora KNN con los dígitos de MNIST o las flores de Iris.</p></div><span id="lab-status" class="badge">Preparando</span></div>
+      <div id="lab-error" class="error-banner" role="alert" hidden></div>
+      <section class="lab-card" aria-labelledby="progress-title">
+        <div class="section-heading"><div><h2 id="progress-title">Evaluación en vivo</h2><p id="lab-progress-message" class="muted" aria-live="polite">Elige los valores e inicia una evaluación.</p></div><button id="lab-stop" class="button secondary compact" type="button" hidden>Detener</button></div>
+        <div id="lab-progress" class="progress-track" role="progressbar" aria-label="Progreso de evaluación" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="lab-progress-fill"></div></div>
+        <pre id="lab-logs" class="lab-logs" tabindex="0" aria-label="Registros de evaluación">Los registros aparecerán al comenzar.</pre>
+      </section>
+      <section class="lab-card" aria-labelledby="history-title">
+        <div class="section-heading"><div><h2 id="history-title">Tus evaluaciones KNN</h2><p class="muted">Selecciona una ejecución para recuperar sus resultados.</p></div><button id="lab-delete-all" class="button danger compact" type="button" disabled>Borrar evaluaciones KNN</button></div>
+        <div class="lab-table-wrap"><table class="lab-table"><thead><tr><th>Ejecución</th><th>Mejor K observado</th><th>Aciertos</th><th>Validación</th><th>Tiempo del barrido</th><th>Acciones</th></tr></thead><tbody id="lab-history"><tr><td colspan="6">Todavía no hay evaluaciones KNN.</td></tr></tbody></table></div>
+      </section>
+      <div id="lab-result" hidden>
+        <section class="lab-card" aria-labelledby="result-title">
+          <div class="section-heading"><div><h2 id="result-title">¿Qué cambia al modificar K?</h2><p id="result-subtitle" class="muted"></p></div><a id="lab-download" class="button secondary compact" href="#">Descargar resultados</a></div>
+          <div id="knn-metrics" class="lab-metrics"></div>
+          <div class="lab-chart"><svg id="knn-chart" viewBox="0 0 800 240" role="img" aria-label="Porcentaje de aciertos de validación según K"></svg><p class="chart-note">Eje horizontal: vecinos K. Eje vertical: aciertos. No son iteraciones de entrenamiento. El mejor K se elige sobre esta validación; no es una evaluación de test independiente.</p></div>
+          <div class="result-toolbar"><label for="result-k">Detalle para K</label><select id="result-k"></select></div>
+          <div class="lab-two-columns"><div><h3>Matriz de confusión</h3><p class="field-help">Fila: clase real. Columna: predicción. La diagonal contiene los aciertos.</p><div id="knn-confusion" class="confusion-wrap"></div></div><div><h3>Resultados por clase</h3><p class="field-help">Precisión: aciertos entre las predicciones de esa clase. Recall: ejemplos de esa clase que reconoció. F1 combina ambas medidas.</p><div id="knn-report" class="lab-table-wrap"></div></div></div>
+        </section>
+        <section class="lab-card" aria-labelledby="prediction-title">
+          <div class="section-heading"><div><h2 id="prediction-title">Mira cómo votan los vecinos</h2><p class="muted">Usa la ejecución y el K seleccionados arriba.</p></div></div>
+          <form id="knn-predict-form" class="lab-predict-controls">
+            <div id="mnist-predict-controls" class="field"><label for="knn-image-index">Índice de imagen MNIST</label><input id="knn-image-index" type="number" min="0" max="59999" value="50000"><p class="field-help">50.000–59.999 son imágenes reservadas. Las anteriores pertenecen al entrenamiento.</p></div>
+            <div id="iris-predict-controls" class="iris-inputs" hidden><div class="field"><label for="iris-sl">Largo del sépalo (cm)</label><input id="iris-sl" type="number" min="0" step="0.1" value="5.1"></div><div class="field"><label for="iris-sw">Ancho del sépalo (cm)</label><input id="iris-sw" type="number" min="0" step="0.1" value="3.5"></div><div class="field"><label for="iris-pl">Largo del pétalo (cm)</label><input id="iris-pl" type="number" min="0" step="0.1" value="1.4"></div><div class="field"><label for="iris-pw">Ancho del pétalo (cm)</label><input id="iris-pw" type="number" min="0" step="0.1" value="0.2"></div></div>
+            <button id="knn-predict-button" class="button" type="submit">Buscar vecinos</button>
+          </form>
+          <div id="knn-prediction" class="neighbor-result" aria-live="polite"></div>
+          <p class="lab-footnote">La proporción de votos no es una probabilidad calibrada ni una garantía de acierto. Se muestran hasta 12 vecinos; la votación utiliza todos los K elegidos.</p>
+        </section>
+      </div>
+      <footer>Todo se guarda localmente en tu computador.<span>Python 3.14 · NumPy · Sin Marimo</span></footer>
+    </div>
+  </main>
+</body>
+</html>

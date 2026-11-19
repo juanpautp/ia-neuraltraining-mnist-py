@@ -18,6 +18,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel, ConfigDict, Field
 
 from mnist import PROJECT_DIR, load_dataset
+from learning_lab import LearningLab, create_lab_router
 from network import architecture, evaluate_network, forward_network, load_network, parameter_count, save_network, train_network
 
 
@@ -339,6 +340,7 @@ class TrainingManager:
         }
 
 manager = TrainingManager()
+lab = LearningLab(lambda: manager, PROJECT_DIR / "outputs" / "web" / "lab")
 
 
 @asynccontextmanager
@@ -346,15 +348,27 @@ async def lifespan(app):
     threading.Thread(target=manager.prepare, daemon=True).start()
     yield
     manager.stop_event.set()
+    lab.stop_event.set()
 
 
 app = FastAPI(title="MNIST Lab", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=PROJECT_DIR / "static"), name="static")
+app.include_router(create_lab_router(lab))
 
 
 @app.get("/")
 def home():
     return FileResponse(PROJECT_DIR / "static" / "index.html")
+
+
+@app.get("/knn")
+def knn_page():
+    return FileResponse(PROJECT_DIR / "static" / "knn.html")
+
+
+@app.get("/compare")
+def comparison_page():
+    return FileResponse(PROJECT_DIR / "static" / "compare.html")
 
 
 @app.get("/api/state")
@@ -364,7 +378,10 @@ def state(since: int = Query(default=0, ge=0), run_id: str | None = None):
 
 @app.post("/api/train", status_code=202)
 def start_training(settings: TrainingSettings):
-    manager.start(settings)
+    with lab.lock:
+        if lab.busy:
+            raise HTTPException(409, "Espera a que termine la evaluación KNN o la comparación")
+        manager.start(settings)
     return manager.snapshot()
 
 
