@@ -1,6 +1,6 @@
 const byId = (id) => document.getElementById(id);
 const moduleKind = document.body.dataset.module;
-const labUI = { records: [], selected: null, busy: false, connected: false, ready: false, networkBusy: false, networks: [], knnRuns: [], handledRun: null, detailRequest: 0, catalogSignature: "", recordSignature: "", polling: false, ticks: 0 };
+const labUI = { records: [], selected: null, busy: false, connected: false, ready: false, networkBusy: false, knnRuns: [], handledRun: null, detailRequest: 0, catalogSignature: "", recordSignature: "", polling: false, ticks: 0 };
 const number = (value) => new Intl.NumberFormat("es-CO", { maximumFractionDigits: 2 }).format(value);
 const percentage = (value) => new Intl.NumberFormat("es-CO", { style: "percent", maximumFractionDigits: 2 }).format(value);
 const seconds = (value) => Number.isFinite(value) ? `${new Intl.NumberFormat("es-CO", { maximumFractionDigits: 4 }).format(value)} s` : "Sin registro";
@@ -164,13 +164,37 @@ function renderKDetail() {
 
 function renderComparison(record) {
   const models = record.models;
+  const total = number(record.summary.evaluation_count);
   const difference = models.network.correct - models.knn.correct;
   byId("comparison-summary").textContent = difference === 0
-    ? `Ambos acertaron ${number(models.network.correct)} de las mismas ${number(record.summary.evaluation_count)} imágenes. Pueden haber acertado imágenes diferentes.`
-    : `${difference > 0 ? "La red neuronal" : "KNN"} acertó ${number(Math.abs(difference))} imágenes más en esta selección de validación. Revisa también tiempo, memoria y los ejemplos de desacuerdo.`;
-  byId("method-rows").replaceChildren(...["network", "knn"].map((method) => {
-    const model = models[method];
-    return row([method === "network" ? "Red neuronal" : `KNN · K ${record.settings.k}`, percentage(model.accuracy), number(model.errors), percentage(model.macro_f1), seconds(model.prediction_seconds), milliseconds(model.milliseconds_per_image), memory(model.model_bytes), seconds(model.preparation_seconds)]);
+    ? `Cada método acertó ${number(models.network.correct)} de ${total} imágenes.`
+    : `${difference > 0 ? "La red neuronal" : "KNN"} acertó ${number(Math.abs(difference))} imágenes más en esta comparación.`;
+  const methods = [["Red neuronal", models.network], [`KNN con K = ${record.settings.k}`, models.knn]];
+  byId("comparison-scores").replaceChildren(...methods.map(([name, model]) => {
+    const card = element("div", undefined, "compare-score");
+    card.append(element("h3", name), element("strong", percentage(model.accuracy)),
+      element("p", `${number(model.correct)} de ${total} aciertos · ${number(model.errors)} errores`, "muted"));
+    return card;
+  }));
+  byId("network-total-time").textContent = seconds(models.network.prediction_seconds);
+  byId("knn-total-time").textContent = seconds(models.knn.prediction_seconds);
+  byId("network-average-time").textContent = milliseconds(models.network.milliseconds_per_image);
+  byId("knn-average-time").textContent = milliseconds(models.knn.milliseconds_per_image);
+  const preparation = [
+    ["Entrenamiento de la red", models.network.preparation_seconds, "Tiempo registrado cuando la red aprendió sus pesos."],
+    ["Preparación de KNN (fit)", models.knn.preparation_seconds, "Tiempo registrado al preparar las referencias y sus sumas de cuadrados."],
+  ];
+  byId("comparison-preparation").replaceChildren(...preparation.map(([label, duration, description]) => {
+    const item = element("div");
+    const detail = element("dd");
+    detail.append(element("strong", seconds(duration)), element("p", description, "muted"));
+    item.append(element("dt", label), detail);
+    return item;
+  }));
+  byId("comparison-extra-metrics").replaceChildren(...methods.map(([name, model]) => {
+    const card = element("div", undefined, "compare-score");
+    card.append(element("h3", name), element("p", `F1 promedio ${percentage(model.macro_f1)} · ${memory(model.model_bytes)} de datos del modelo`, "muted"));
+    return card;
   }));
   const agreement = record.agreements;
   byId("agreement-metrics").replaceChildren(metric("Ambos acertaron", number(agreement.both_correct)), metric("Solo acertó la red", number(agreement.network_only)), metric("Solo acertó KNN", number(agreement.knn_only)), metric("Ambos fallaron", number(agreement.both_wrong)));
@@ -190,7 +214,7 @@ function renderComparison(record) {
   if (!record.examples.length) examples.append(element("p", "Ambos métodos dieron las mismas respuestas en esta selección.", "lab-empty"));
 }
 
-async function openRecord(id) {
+async function openRecord(id, focusResult = false) {
   const token = ++labUI.detailRequest;
   const record = await request(`/api/lab/runs/${encodeURIComponent(id)}`);
   if (token !== labUI.detailRequest) return;
@@ -207,8 +231,9 @@ async function openRecord(id) {
     renderKChart(record.results);
     renderKDetail();
   } else {
-    byId("result-subtitle").textContent = `${number(record.reference_count)} referencias para ambos · ${number(record.summary.evaluation_count)} imágenes reservadas · ${record.models.network.name}`;
+    byId("result-subtitle").textContent = `Comparación #${record.id.slice(0, 8)} · ${number(record.summary.evaluation_count)} imágenes de validación · Red: ${record.models.network.name}`;
     renderComparison(record);
+    if (focusResult) byId("result-title").focus();
   }
   renderHistory();
 }
@@ -234,7 +259,7 @@ function renderHistory() {
     const name = element("div", record.name, "lab-run-name");
     name.append(element("span", new Date(record.created_at).toLocaleString("es-CO"), "lab-run-date"));
     const actions = element("div", undefined, "lab-row-actions");
-    actions.append(button("Ver", () => openRecord(record.id)), button("Borrar", () => deleteRecords(record.id), "danger"));
+    actions.append(button("Ver", () => openRecord(record.id, moduleKind === "comparison")), button("Borrar", () => deleteRecords(record.id), "danger"));
     actions.querySelectorAll("button").forEach((item) => { if (item.textContent === "Borrar") item.disabled = labUI.busy; });
     const summary = record.summary;
     const values = moduleKind === "knn"
@@ -271,26 +296,41 @@ function selectOptions(id, records, emptyText) {
   if (records.some((record) => record.id === previous)) select.value = previous;
 }
 
+function syncComparisonK(preserveSelection = false) {
+  const run = labUI.knnRuns.find((record) => record.id === byId("comparison-knn").value);
+  const select = byId("comparison-k");
+  const previous = Number(select.value);
+  const values = run?.settings.k_values ?? [];
+  select.disabled = values.length === 0;
+  if (!values.length) {
+    select.replaceChildren(new Option("Selecciona una evaluación", ""));
+    return;
+  }
+  const recommended = run.summary.best_k;
+  select.replaceChildren(...values.map((k) => new Option(k === recommended ? `K = ${k} · recomendado` : `K = ${k}`, k)));
+  if (preserveSelection && values.includes(previous)) select.value = previous;
+  else if (values.includes(recommended)) select.value = recommended;
+}
+
 async function refreshCatalog() {
   if (moduleKind !== "comparison") return;
   const [networkCatalog, knnCatalog] = await Promise.all([request("/api/experiments"), request("/api/lab/runs?kind=knn")]);
   const networks = networkCatalog.experiments.filter((record) => record.dataset === "mnist-train-first-50000-validation-last-10000").sort((a, b) => (b.validation_accuracy ?? -1) - (a.validation_accuracy ?? -1));
   const knnRuns = knnCatalog.runs.filter((record) => record.settings.dataset === "mnist" && record.summary.reference_count === 50000);
   const signature = JSON.stringify([networks.map((record) => record.id), knnRuns.map((record) => record.id)]);
-  labUI.networks = networks;
   labUI.knnRuns = knnRuns;
   if (signature !== labUI.catalogSignature) {
-    const previous = byId("comparison-knn").value;
+    const previousRun = byId("comparison-knn").value;
     selectOptions("comparison-network", networks, "Entrena primero una red neuronal");
     selectOptions("comparison-knn", knnRuns, "Prepara KNN con 50.000 referencias");
-    if (previous !== byId("comparison-knn").value && knnRuns.length) byId("comparison-k").value = knnRuns.find((record) => record.id === byId("comparison-knn").value).summary.best_k;
+    syncComparisonK(previousRun === byId("comparison-knn").value);
     labUI.catalogSignature = signature;
   }
 }
 
 function refreshControls() {
   const needsMNIST = moduleKind === "comparison" || byId("knn-dataset")?.value === "mnist";
-  const hasModels = moduleKind === "knn" || (labUI.networks.length > 0 && labUI.knnRuns.length > 0);
+  const hasModels = moduleKind === "knn" || Boolean(byId("comparison-network").value && byId("comparison-knn").value && byId("comparison-k").value);
   byId("lab-fields").disabled = labUI.busy;
   byId("lab-start").disabled = !labUI.connected || labUI.busy || labUI.networkBusy || (needsMNIST && !labUI.ready) || !hasModels;
   byId("lab-stop").hidden = !labUI.busy;
@@ -298,8 +338,9 @@ function refreshControls() {
   if (byId("knn-predict-button")) byId("knn-predict-button").disabled = labUI.busy;
   byId("lab-form-note").textContent = labUI.busy ? "Hay una evaluación en curso. Puedes detenerla sin borrar los resultados anteriores."
     : labUI.networkBusy ? "La red neuronal está entrenando. Espera a que termine para medir los métodos."
-    : needsMNIST && !labUI.ready ? "Cargando MNIST. Iris se puede explorar mientras tanto."
+    : needsMNIST && !labUI.ready ? (moduleKind === "comparison" ? "Cargando MNIST…" : "Cargando MNIST. Iris se puede explorar mientras tanto.")
     : !hasModels ? "Necesitas una red guardada y una evaluación KNN de MNIST con 50.000 referencias."
+    : moduleKind === "comparison" ? "Ambos métodos predicen sobre la misma selección. El resultado se guarda automáticamente."
     : "Los resultados se guardan automáticamente con un nombre distinto para cada ejecución.";
 }
 
@@ -321,7 +362,8 @@ async function poll() {
     const progress = relevant && state.progress.total ? Math.min(100, state.progress.completed / state.progress.total * 100) : 0;
     byId("lab-progress-fill").style.width = `${progress}%`;
     byId("lab-progress").setAttribute("aria-valuenow", progress.toFixed(1));
-    byId("lab-progress-message").textContent = relevant ? `${state.progress.message}${state.duration ? ` · ${seconds(state.duration)}` : ""}` : labUI.busy ? "Hay una evaluación en curso en el otro módulo." : "Listo para iniciar una nueva evaluación. Puedes consultar los resultados guardados abajo.";
+    const durationLabel = moduleKind === "comparison" ? "Duración de toda la comparación: " : "";
+    byId("lab-progress-message").textContent = relevant ? `${state.progress.message}${state.duration ? ` · ${durationLabel}${seconds(state.duration)}` : ""}` : labUI.busy ? "Hay una evaluación en curso en el otro módulo." : "Listo para iniciar una nueva evaluación. Puedes consultar los resultados guardados abajo.";
     const logs = byId("lab-logs");
     const nearBottom = logs.scrollHeight - logs.scrollTop - logs.clientHeight < 40;
     logs.textContent = relevant && state.logs.length ? state.logs.join("\n") : "Los registros de este módulo aparecerán al comenzar.";
@@ -423,10 +465,7 @@ if (moduleKind === "knn") {
   });
   updateDatasetFields();
 } else {
-  byId("comparison-knn").addEventListener("change", () => {
-    const record = labUI.knnRuns.find((item) => item.id === byId("comparison-knn").value);
-    if (record) byId("comparison-k").value = record.summary.best_k;
-  });
+  byId("comparison-knn").addEventListener("change", () => syncComparisonK());
 }
 
 poll();

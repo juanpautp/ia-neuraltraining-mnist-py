@@ -107,6 +107,23 @@ class LearningLabTests(unittest.TestCase):
         self.assertEqual(response.status_code, 422)
         self.assertIn("igualdad", response.json()["detail"])
 
+    def test_comparison_only_accepts_k_values_from_the_selected_evaluation(self):
+        record = self.create_knn(k_values=[3, 5])
+        settings = {"network_experiment_id": "network1", "knn_run_id": record["id"], "evaluation_count": 4}
+
+        response = self.client.post("/api/lab/compare", json={**settings, "k": 4})
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("3, 5", response.json()["detail"])
+        self.assertEqual(self.client.get("/api/lab/runs?kind=comparison").json()["runs"], [])
+
+        for k in (3, 5):
+            with self.subTest(k=k):
+                response = self.client.post("/api/lab/compare", json={**settings, "k": k})
+                self.assertEqual(response.status_code, 202, response.text)
+                state = self.wait()
+                result = self.client.get(f"/api/lab/runs/{state['run_id']}").json()
+                self.assertEqual(result["settings"]["k"], k)
+
     def test_iris_works_without_mnist_and_has_vote_probabilities(self):
         self.manager.dataset = None
         record = self.create_knn(dataset="iris", standardize=True, seed=42)

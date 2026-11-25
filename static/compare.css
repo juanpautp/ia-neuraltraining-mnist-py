@@ -1,0 +1,199 @@
+.compare-workspace {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px 24px 12px;
+}
+
+.compare-workspace .page-heading h1,
+.compare-workspace .page-heading p {
+  max-width: none;
+}
+
+.compare-workspace .section-heading {
+  flex-wrap: wrap;
+}
+
+.compare-form,
+.compare-timing {
+  padding: 0 23px 20px;
+}
+
+.compare-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, .8fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.compare-fields .field,
+.compare-seed {
+  margin-bottom: 0;
+}
+
+.compare-options {
+  margin-top: 15px;
+}
+
+.compare-options summary,
+.compare-disclosure summary {
+  color: var(--blue);
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.compare-options summary {
+  width: fit-content;
+  padding: 5px 0;
+  font-size: 12px;
+}
+
+.compare-seed {
+  max-width: 340px;
+  margin-top: 10px;
+}
+
+.compare-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin-top: 16px;
+}
+
+.compare-actions .button {
+  width: auto;
+}
+
+.compare-actions .field-help {
+  margin: 0;
+}
+
+.compare-logs {
+  margin: 10px 23px 8px;
+}
+
+.compare-logs .lab-logs {
+  margin: 6px 0;
+  border-radius: 7px;
+}
+
+.compare-scores,
+.compare-preparation {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.compare-scores {
+  padding: 0 23px 20px;
+}
+
+.compare-score,
+.compare-preparation > div {
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: #f3f6fc;
+  overflow-wrap: anywhere;
+}
+
+.compare-score strong {
+  display: block;
+  color: var(--blue);
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  margin: 6px 0;
+}
+
+.compare-time-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-variant-numeric: tabular-nums;
+}
+
+.compare-time-table th,
+.compare-time-table td {
+  padding: 11px 9px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  overflow-wrap: break-word;
+}
+
+.compare-time-table thead th {
+  background: #f3f6fc;
+}
+
+.compare-time-table th:first-child {
+  width: 48%;
+}
+
+.compare-time-note {
+  margin: 10px 0 18px;
+}
+
+.compare-preparation {
+  margin-bottom: 0;
+}
+
+.compare-preparation dt {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.compare-preparation dd {
+  margin: 6px 0 0;
+}
+
+.compare-preparation strong {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.compare-disclosure summary {
+  padding: 16px 23px;
+}
+
+.compare-detail-note,
+.compare-history-actions {
+  padding: 0 23px 14px;
+}
+
+@media (max-width: 920px) {
+  .compare-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 710px) {
+  .compare-workspace {
+    padding: 20px 14px 8px;
+  }
+
+  .compare-fields {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .compare-form,
+  .compare-timing,
+  .compare-scores {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .compare-logs {
+    margin-left: 16px;
+    margin-right: 16px;
+  }
+
+  .compare-score,
+  .compare-preparation > div {
+    padding: 10px;
+  }
+
+  .compare-time-table th,
+  .compare-time-table td {
+    padding: 8px 6px;
+    font-size: 12px;
+  }
+}

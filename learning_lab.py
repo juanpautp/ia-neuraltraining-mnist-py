@@ -213,6 +213,9 @@ class LearningLab:
         references = record["reference_indices"]
         if references != list(range(len(manager.dataset[1]))):
             raise HTTPException(422, "Para comparar en igualdad de condiciones, prepara KNN con todos los ejemplos de entrenamiento (50.000 en MNIST)")
+        if settings.k not in record["settings"]["k_values"]:
+            allowed = ", ".join(map(str, record["settings"]["k_values"]))
+            raise HTTPException(422, f"Elige un K probado en esa evaluación: {allowed}")
         if settings.k > len(references) or settings.evaluation_count > len(manager.dataset[3]):
             raise HTTPException(422, "K o la cantidad de imágenes superan los datos disponibles")
 
